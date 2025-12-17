@@ -106,13 +106,61 @@ const Clients = () => {
     });
 
     // Handle client approval
-    const handleApprove = (clientId) => {
+    const handleApprove = async (clientId) => {
         const approvals = getApprovalStatus();
         if (!approvals.approved[clientId]) {
             approvals.approved[clientId] = new Date().toISOString();
             localStorage.setItem('clientApprovals', JSON.stringify(approvals));
             window.dispatchEvent(new Event('clientApprovalsUpdated')); // Notify other components
             loadClients(); // Refresh to update UI
+
+            // Trigger n8n Webhook
+            try {
+                const clientData = contracts.find(c => c.id === clientId);
+                const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+
+                if (!webhookUrl) {
+                    console.warn('VITE_N8N_WEBHOOK_URL não configurada no .env ou Vercel');
+                    // alert('Atenção: URL do Webhook não configurada!');
+                }
+
+                if (webhookUrl && clientData) {
+                    console.log('Tentando disparar webhook para:', webhookUrl);
+                    console.log('Payload:', {
+                        event: 'client_approved',
+                        clientId: clientId,
+                        clientName: clientData.client,
+                        phoneNumber: clientData.telefone,
+                        plan: clientData.plan,
+                    });
+
+                    const response = await fetch(webhookUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            event: 'client_approved',
+                            clientId: clientId,
+                            clientName: clientData.client,
+                            phoneNumber: clientData.telefone,
+                            plan: clientData.plan,
+                            value: clientData.value,
+                            contractData: clientData
+                        })
+                    });
+
+                    if (response.ok) {
+                        console.log('Webhook n8n disparado com sucesso');
+                    } else {
+                        console.error('Erro na resposta do n8n:', response.statusText);
+                        alert('Erro ao enviar dados para o n8n: ' + response.statusText);
+                    }
+                }
+            } catch (error) {
+                console.error('Erro ao disparar webhook n8n:', error);
+                alert('Erro de conexão com o n8n. Verifique o console.');
+            }
         }
     };
 

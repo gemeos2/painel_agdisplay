@@ -42,6 +42,7 @@ const mapClientToUI = (client) => {
         type: serviceType,
         client: client.nome,
         plan: client.plano,
+        telefone: client.telefone, // Novo campo
         startDate: client.created_at ? client.created_at.split('T')[0] : '',
         value: 'R$ -', // Not in DB
     };
