@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail } from 'lucide-react';
+import logo from '../assets/LOGO-AG-DISPLAY-2.png';
 
 const Login = () => {
     const { signIn } = useAuth();
@@ -38,7 +39,7 @@ const Login = () => {
         }}>
             <div className="card" style={{ maxWidth: '400px', width: '100%' }}>
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--color-primary)' }}>AdMgmt</h1>
+                    <img src={logo} alt="Logo" style={{ height: '60px', marginBottom: '16px', display: 'inline-block' }} />
                     <p style={{ color: 'var(--color-text-muted)', marginTop: '8px' }}>Entre para gerenciar seus contratos</p>
                 </div>
 

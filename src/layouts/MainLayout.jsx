@@ -4,6 +4,7 @@ import { Outlet, NavLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { LayoutDashboard, ArrowUpFromLine, MonitorPlay, Calendar, Settings, Users, Menu, X, LogOut } from 'lucide-react';
 import '../index.css';
+import logo from '../assets/LOGO-AG-DISPLAY-2.png';
 
 const MainLayout = () => {
     const { user, signOut } = useAuth();
@@ -41,8 +42,7 @@ const MainLayout = () => {
             <aside className={`sidebar ${isSidebarOpen ? 'open' : ''}`}>
                 <div style={{ marginBottom: 'var(--space-8)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                        <div style={{ width: 32, height: 32, background: 'var(--color-primary)', borderRadius: '8px' }}></div>
-                        <h1 style={{ fontSize: '1.25rem', fontWeight: 700, letterSpacing: '-0.5px' }}>AdMgmt</h1>
+                        <img src={logo} alt="AdMgmt Logo" style={{ height: '60px' }} />
                     </div>
                     {/* Close button for mobile */}
                     <button className="menu-toggle" onClick={closeSidebar} style={{ color: 'var(--color-text-muted)' }}>
