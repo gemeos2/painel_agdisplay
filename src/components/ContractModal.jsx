@@ -82,23 +82,6 @@ const ContractModal = ({ isOpen, onClose, contract }) => {
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: 'var(--space-4)' }}>
                         <button
-                            className="btn btn-primary"
-                            style={{ flex: 1, backgroundColor: '#25D366', color: 'white', border: 'none' }}
-                            onClick={() => {
-                                if (contract.chatwoot_id) {
-                                    const directUrl = `https://trius-chatwoot.dumfta.easypanel.host/app/accounts/1/conversations/${contract.chatwoot_id}`;
-                                    window.open(directUrl, '_blank');
-                                } else {
-                                    const searchQuery = contract.telefone || contract.email_contrato || contract.client;
-                                    const chatwootUrl = `https://trius-chatwoot.dumfta.easypanel.host/app/accounts/1/contacts?q=${searchQuery}`;
-                                    window.open(chatwootUrl, '_blank');
-                                }
-                            }}
-                        >
-                            <MessageCircle size={20} />
-                            Chatwoot
-                        </button>
-                        <button
                             className="btn"
                             style={{
                                 flex: 1,
