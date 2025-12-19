@@ -49,6 +49,7 @@ const mapClientToUI = (client) => {
         startDate: client.created_at ? client.created_at.split('T')[0] : '',
         value: 'R$ -',
         documento_url: client.documento_url || null,
+        chatwoot_id: client.chatwoot_conversation_id || null,
     };
 
     // Derived fields - pass service type to calculateEndDate
@@ -108,6 +109,7 @@ export const insertClient = async (clientData) => {
             cpf_cnpj: clientData.cpf,
             telefone: clientData.telefone,
             documento_url: clientData.documento_url,
+            chatwoot_conversation_id: clientData.chatwoot_id,
             status: 'agendado', // Status inicial default
             created_at: new Date().toISOString()
         }])
