@@ -11,7 +11,7 @@ export const useNewClientsCount = () => {
             // ou usaríamos React Query/SWR para cache.
             // Aqui vamos buscar e calcular localmente para manter consistência com o código existente.
             const clients = await fetchClients();
-            const scheduledClients = clients.filter(contract => contract.status === 'agendado');
+            const scheduledClients = clients.filter(contract => contract.status?.toLowerCase() === 'agendado');
             setCount(scheduledClients.length);
         } catch (error) {
             console.error('Error calculating scheduled clients count:', error);

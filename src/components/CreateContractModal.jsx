@@ -35,6 +35,7 @@ const CreateContractModal = ({ isOpen, onClose, onSuccess }) => {
             }
 
             await insertClient({ ...formData, documento_url });
+            window.dispatchEvent(new CustomEvent('clientStatusUpdated'));
             onSuccess();
             onClose();
             // Reset form

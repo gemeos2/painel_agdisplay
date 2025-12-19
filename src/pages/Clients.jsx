@@ -63,6 +63,7 @@ const Clients = () => {
             await updateClientStatus(clientId, 'ativo');
 
             // 3. Refresh UI
+            window.dispatchEvent(new CustomEvent('clientStatusUpdated'));
             loadClients();
         } catch (error) {
             console.error('Erro ao ativar cliente:', error);
