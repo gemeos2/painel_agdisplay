@@ -11,19 +11,10 @@ export const useNewClientsCount = () => {
             // ou usaríamos React Query/SWR para cache.
             // Aqui vamos buscar e calcular localmente para manter consistência com o código existente.
             const clients = await fetchClients();
-
-            const storedApprovals = localStorage.getItem('clientApprovals');
-            const approvalStatus = storedApprovals ? JSON.parse(storedApprovals) : { approved: {}, rejected: [] };
-
-            const newClients = clients.filter(contract => {
-                const isApproved = approvalStatus.approved[contract.id];
-                const isRejected = approvalStatus.rejected.includes(contract.id);
-                return !isApproved && !isRejected;
-            });
-
-            setCount(newClients.length);
+            const scheduledClients = clients.filter(contract => contract.status === 'agendado');
+            setCount(scheduledClients.length);
         } catch (error) {
-            console.error('Error calculating new clients count:', error);
+            console.error('Error calculating scheduled clients count:', error);
         } finally {
             setLoading(false);
         }
@@ -32,17 +23,10 @@ export const useNewClientsCount = () => {
     useEffect(() => {
         calculateCount();
 
-        // Escutar evento customizado para atualizações locais
+        // Opcional: Escutar evento de mudança para atualizar em tempo real se necessário
         const handleUpdate = () => calculateCount();
-        window.addEventListener('clientApprovalsUpdated', handleUpdate);
-
-        // Escutar evento de storage para atualizações em outras abas
-        window.addEventListener('storage', handleUpdate);
-
-        return () => {
-            window.removeEventListener('clientApprovalsUpdated', handleUpdate);
-            window.removeEventListener('storage', handleUpdate);
-        };
+        window.addEventListener('clientStatusUpdated', handleUpdate);
+        return () => window.removeEventListener('clientStatusUpdated', handleUpdate);
     }, []);
 
     return { count, loading, refreshCount: calculateCount };

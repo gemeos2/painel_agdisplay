@@ -8,6 +8,7 @@ import logo from '../assets/LOGO-AG-DISPLAY-2.png';
 
 const MainLayout = () => {
     const { user, signOut } = useAuth();
+    const { count: scheduledClientsCount } = useNewClientsCount();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -24,7 +25,7 @@ const MainLayout = () => {
 
     const navItems = [
         { path: '/', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-        { path: '/clients', label: 'Clientes', icon: <Users size={20} /> },
+        { path: '/clients', label: 'Clientes', icon: <Users size={20} />, badge: scheduledClientsCount },
         { path: '/elevators', label: 'Elevadores', icon: <ArrowUpFromLine size={20} /> },
         { path: '/tvs', label: 'TVs & Displays', icon: <MonitorPlay size={20} /> },
         { path: '/calendar', label: 'Calendário', icon: <Calendar size={20} /> },
@@ -52,9 +53,6 @@ const MainLayout = () => {
 
                 <nav style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', flex: 1 }}>
                     {navItems.map((item) => {
-                        const isClientsItem = item.label === 'Clientes';
-                        const { count: newClientsCount } = isClientsItem ? useNewClientsCount() : { count: 0 };
-
                         return (
                             <NavLink
                                 key={item.path}
@@ -76,7 +74,7 @@ const MainLayout = () => {
                             >
                                 {item.icon}
                                 {item.label}
-                                {isClientsItem && newClientsCount > 0 && (
+                                {item.badge > 0 && (
                                     <span style={{
                                         position: 'absolute',
                                         right: 'var(--space-3)',
@@ -92,7 +90,7 @@ const MainLayout = () => {
                                         justifyContent: 'center',
                                         fontWeight: 'bold'
                                     }}>
-                                        {newClientsCount}
+                                        {item.badge}
                                     </span>
                                 )}
                             </NavLink>

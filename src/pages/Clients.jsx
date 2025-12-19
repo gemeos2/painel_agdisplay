@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Users, MoreVertical, Calendar, CheckCircle, Clock, XCircle, Loader2, Check, X } from 'lucide-react';
+import { Search, Users, MoreVertical, Calendar, CheckCircle, Clock, XCircle, Loader2, Plus } from 'lucide-react';
+import { useNewClientsCount } from '../hooks/useNewClientsCount';
 import { getPlanColor, getStatusStyle } from '../data/mockData';
 import ContractModal from '../components/ContractModal';
-import { fetchClients } from '../services/supabase';
+import CreateContractModal from '../components/CreateContractModal';
+import { fetchClients, updateClientStatus } from '../services/supabase';
 
 const Clients = () => {
     const [activeTab, setActiveTab] = useState('ativo'); // 'ativo', 'agendado', 'finalizado'
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedContract, setSelectedContract] = useState(null);
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+
+    const { count: scheduledClientsCount } = useNewClientsCount();
 
     useEffect(() => {
         loadClients();
@@ -29,181 +34,59 @@ const Clients = () => {
         }
     };
 
-    // Get approved/rejected clients from localStorage
-    const getApprovalStatus = () => {
-        const stored = localStorage.getItem('clientApprovals');
-        return stored ? JSON.parse(stored) : { approved: {}, rejected: [] };
-    };
+    // Handle client activation via n8n and DB update
+    const handleActivate = async (clientId) => {
+        try {
+            const clientData = contracts.find(c => c.id === clientId);
+            const webhookUrl = 'https://n8n.triusbot.site/webhook/cliente-aceito';
 
-    // Check if 24 hours have passed since acceptance
-    const has24HoursPassed = (acceptedAt) => {
-        if (!acceptedAt) return false;
-        const acceptedTime = new Date(acceptedAt).getTime();
-        const currentTime = new Date().getTime();
-        const hoursPassed = (currentTime - acceptedTime) / (1000 * 60 * 60);
-        return hoursPassed >= 24;
-    };
+            // 1. Trigger n8n Webhook
+            console.log('Disparando webhook de ativação n8n...');
 
-    const approvalStatus = getApprovalStatus();
+            // Non-blocking fetch for n8n
+            fetch(webhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors',
+                body: JSON.stringify({
+                    event: 'client_activated',
+                    clientId: clientId,
+                    clientName: clientData?.client,
+                    email: clientData?.email_contrato,
+                    phoneNumber: clientData?.telefone,
+                    cpf: clientData?.cpf,
+                    plan: clientData?.plan
+                })
+            }).catch(e => console.error('Erro ao chamar webhook n8n:', e));
 
-    // Calculate status based on dates (same logic as Dashboard)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+            // 2. Update DB status to 'ativo'
+            await updateClientStatus(clientId, 'ativo');
 
-    const contractsWithCalculatedStatus = contracts.map(contract => {
-        const startDate = new Date(contract.startDate);
-        const endDate = new Date(contract.endDate);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(0, 0, 0, 0);
-
-        let status;
-
-        // Check if client is approved
-        const acceptedAt = approvalStatus.approved[contract.id];
-
-        if (acceptedAt) {
-            // If approved but less than 24h, status is Agendado
-            if (!has24HoursPassed(acceptedAt)) {
-                status = 'Agendado';
-            } else {
-                // After 24h, calculate status based on dates
-                if (startDate > today) {
-                    status = 'Agendado';
-                } else if (endDate < today) {
-                    status = 'Finalizado';
-                } else {
-                    status = 'Ativo';
-                }
-            }
-        } else {
-            // Not approved yet - status is Pendente
-            status = 'Pendente';
-        }
-
-        return { ...contract, status };
-    });
-
-    // Filter based on tab and search
-    const filteredContracts = contractsWithCalculatedStatus.filter(contract => {
-        const isApproved = approvalStatus.approved[contract.id];
-        const isRejected = approvalStatus.rejected.includes(contract.id);
-
-        // In "Novos clientes" tab, show only unapproved and non-rejected clients
-        if (activeTab === 'todos') {
-            if (isApproved || isRejected) return false;
-            const searchMatches = contract.client.toLowerCase().includes(searchTerm.toLowerCase());
-            return searchMatches;
-        }
-
-        // In other tabs (Ativos, Agendados, Finalizados), show only approved clients
-        if (isApproved) {
-            const statusMatches = contract.status.toLowerCase() === activeTab;
-            const searchMatches = contract.client.toLowerCase().includes(searchTerm.toLowerCase());
-            return statusMatches && searchMatches;
-        }
-
-        return false;
-    });
-
-    // Handle client approval
-    const handleApprove = async (clientId) => {
-        const approvals = getApprovalStatus();
-        if (!approvals.approved[clientId]) {
-            approvals.approved[clientId] = new Date().toISOString();
-            localStorage.setItem('clientApprovals', JSON.stringify(approvals));
-            window.dispatchEvent(new Event('clientApprovalsUpdated')); // Notify other components
-            loadClients(); // Refresh to update UI
-
-            // Trigger n8n Webhook
-            try {
-                const clientData = contracts.find(c => c.id === clientId);
-                const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
-
-                if (!webhookUrl) {
-                    console.warn('VITE_N8N_WEBHOOK_URL não configurada no .env ou Vercel');
-                    // alert('Atenção: URL do Webhook não configurada!');
-                }
-
-                if (webhookUrl && clientData) {
-                    console.log('Tentando disparar webhook para:', webhookUrl);
-
-                    // Usamos um timeout simples para não travar a UI se o n8n demorar
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-                    try {
-                        const response = await fetch(webhookUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            mode: 'cors', // Garantindo o modo cors
-                            body: JSON.stringify({
-                                event: 'client_approved',
-                                clientId: clientId,
-                                clientName: clientData.client,
-                                phoneNumber: clientData.telefone,
-                                plan: clientData.plan,
-                                value: clientData.value,
-                                contractData: clientData
-                            }),
-                            signal: controller.signal
-                        });
-
-                        clearTimeout(timeoutId);
-
-                        if (response.ok) {
-                            console.log('Webhook n8n disparado com sucesso');
-                        } else {
-                            // Se o n8n receber mas der erro de CORS na volta, o status pode ser 0 ou erro.
-                            // Se chegou aqui com response.ok false, avisamos o status.
-                            console.warn('n8n respondeu com status:', response.status);
-                        }
-                    } catch (fetchError) {
-                        // Se for erro de CORS, o fetch joga uma exceção Type Error.
-                        // Mas o n8n costuma processar a entrada antes disso.
-                        console.log('Finalizado envio para n8n (pode haver aviso de CORS mas os dados costumam chegar).');
-                    }
-                }
-            } catch (error) {
-                console.error('Erro ao disparar webhook n8n:', error);
-                alert('Erro de conexão com o n8n. Verifique o console.');
-            }
+            // 3. Refresh UI
+            loadClients();
+        } catch (error) {
+            console.error('Erro ao ativar cliente:', error);
+            alert('Erro ao ativar cliente. Verifique o console.');
         }
     };
 
-    // Handle client rejection
-    const handleReject = (clientId) => {
-        const approvals = getApprovalStatus();
-        if (!approvals.rejected.includes(clientId)) {
-            approvals.rejected.push(clientId);
-            localStorage.setItem('clientApprovals', JSON.stringify(approvals));
-            window.dispatchEvent(new Event('clientApprovalsUpdated')); // Notify other components
-            loadClients(); // Refresh to update UI
-        }
-    };
-
-    // Helper for date formatting using our consistent style
     const formatDate = (dateString) => {
-        // Re-use logic or simple split
         if (!dateString) return '';
         const [year, month, day] = dateString.split('-');
         return `${day}/${month}/${year}`;
     };
 
-    // Calculate count of new clients
-    const newClientsCount = contractsWithCalculatedStatus.filter(contract => {
-        const isApproved = approvalStatus.approved[contract.id];
-        const isRejected = approvalStatus.rejected.includes(contract.id);
-        return !isApproved && !isRejected;
-    }).length;
-
     const tabs = [
         { id: 'ativo', label: 'Ativos', icon: CheckCircle },
         { id: 'agendado', label: 'Agendados', icon: Clock },
         { id: 'finalizado', label: 'Finalizados', icon: XCircle },
-        { id: 'todos', label: 'Novos clientes', icon: Users },
     ];
+
+    const filteredContracts = contracts.filter(contract => {
+        const statusMatches = contract.status?.toLowerCase() === activeTab;
+        const searchMatches = contract.client?.toLowerCase().includes(searchTerm.toLowerCase());
+        return statusMatches && searchMatches;
+    });
 
     if (loading) {
         return (
@@ -230,6 +113,13 @@ const Clients = () => {
                     <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: 'var(--space-2)' }}>Clientes</h1>
                     <p style={{ color: 'var(--color-text-muted)' }}>Gerencie seus clientes por status de contrato.</p>
                 </div>
+                <button
+                    className="btn btn-primary"
+                    onClick={() => setIsCreateModalOpen(true)}
+                >
+                    <Plus size={20} />
+                    Novo contrato
+                </button>
             </div>
 
             {/* Tabs & Search */}
@@ -245,7 +135,6 @@ const Clients = () => {
                     {tabs.map(tab => {
                         const Icon = tab.icon;
                         const isActive = activeTab === tab.id;
-                        const isTodosTab = tab.id === 'todos';
 
                         return (
                             <button
@@ -255,12 +144,8 @@ const Clients = () => {
                                     padding: '8px 16px',
                                     borderRadius: 'var(--radius-sm)',
                                     border: 'none',
-                                    background: isActive
-                                        ? (isTodosTab ? '#ef4444' : 'var(--color-bg-surface)')
-                                        : (isTodosTab ? 'rgba(239, 68, 68, 0.2)' : 'transparent'),
-                                    color: isTodosTab
-                                        ? (isActive ? 'white' : '#ef4444')
-                                        : (isActive ? 'white' : 'var(--color-text-muted)'),
+                                    background: isActive ? 'var(--color-bg-surface)' : 'transparent',
+                                    color: isActive ? 'white' : 'var(--color-text-muted)',
                                     cursor: 'pointer',
                                     fontWeight: 500,
                                     transition: 'all 0.2s',
@@ -272,22 +157,22 @@ const Clients = () => {
                             >
                                 <Icon size={16} />
                                 {tab.label}
-                                {isTodosTab && newClientsCount > 0 && (
+                                {tab.id === 'agendado' && scheduledClientsCount > 0 && (
                                     <span style={{
-                                        background: isActive ? 'var(--color-primary)' : 'rgba(239, 68, 68, 0.15)',
-                                        color: isActive ? 'white' : '#ef4444',
+                                        marginLeft: '8px',
+                                        background: '#ef4444',
+                                        color: 'white',
                                         fontSize: '0.7rem',
-                                        padding: '0 6px',
-                                        borderRadius: '999px',
-                                        minWidth: '18px',
                                         height: '18px',
-                                        display: 'flex',
+                                        minWidth: '18px',
+                                        padding: '0 5px',
+                                        borderRadius: '999px',
+                                        display: 'inline-flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        fontWeight: '700',
-                                        marginLeft: 'auto'
+                                        fontWeight: 'bold'
                                     }}>
-                                        {newClientsCount}
+                                        {scheduledClientsCount}
                                     </span>
                                 )}
                             </button>
@@ -308,7 +193,7 @@ const Clients = () => {
                 </div>
             </div>
 
-            {/* Clients/Contracts Grid */}
+            {/* Clients Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--space-6)' }}>
                 {filteredContracts.map(contract => {
                     const statusStyle = getStatusStyle(contract.status);
@@ -366,8 +251,7 @@ const Clients = () => {
                                     <span style={{ fontWeight: 600 }}>{contract.value}</span>
                                 </div>
 
-                                {/* Accept/Reject Buttons - Only show in Todos tab */}
-                                {activeTab === 'todos' && (
+                                {activeTab === 'agendado' && (
                                     <div style={{
                                         display: 'flex',
                                         gap: 'var(--space-2)',
@@ -378,14 +262,14 @@ const Clients = () => {
                                         <button
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleApprove(contract.id);
+                                                handleActivate(contract.id);
                                             }}
                                             style={{
                                                 flex: 1,
                                                 padding: '8px 12px',
                                                 borderRadius: 'var(--radius-sm)',
                                                 border: 'none',
-                                                background: '#10b981',
+                                                background: 'var(--color-primary)',
                                                 color: 'white',
                                                 cursor: 'pointer',
                                                 fontWeight: 600,
@@ -396,38 +280,11 @@ const Clients = () => {
                                                 gap: '6px',
                                                 transition: 'all 0.2s'
                                             }}
-                                            onMouseEnter={(e) => e.currentTarget.style.background = '#059669'}
-                                            onMouseLeave={(e) => e.currentTarget.style.background = '#10b981'}
+                                            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--color-primary-hover)'}
+                                            onMouseLeave={(e) => e.currentTarget.style.background = 'var(--color-primary)'}
                                         >
-                                            <Check size={16} />
-                                            Aceitar
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleReject(contract.id);
-                                            }}
-                                            style={{
-                                                flex: 1,
-                                                padding: '8px 12px',
-                                                borderRadius: 'var(--radius-sm)',
-                                                border: 'none',
-                                                background: '#ef4444',
-                                                color: 'white',
-                                                cursor: 'pointer',
-                                                fontWeight: 600,
-                                                fontSize: '0.875rem',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                gap: '6px',
-                                                transition: 'all 0.2s'
-                                            }}
-                                            onMouseEnter={(e) => e.currentTarget.style.background = '#dc2626'}
-                                            onMouseLeave={(e) => e.currentTarget.style.background = '#ef4444'}
-                                        >
-                                            <X size={16} />
-                                            Negar
+                                            <CheckCircle size={16} />
+                                            Ativar
                                         </button>
                                     </div>
                                 )}
@@ -435,17 +292,18 @@ const Clients = () => {
                         </div>
                     )
                 })}
-                {filteredContracts.length === 0 && (
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '40px', color: 'var(--color-text-muted)' }}>
-                        Nenhum cliente encontrado nesta categoria.
-                    </div>
-                )}
             </div>
 
             <ContractModal
                 isOpen={!!selectedContract}
                 onClose={() => setSelectedContract(null)}
                 contract={selectedContract}
+            />
+
+            <CreateContractModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                onSuccess={loadClients}
             />
         </div>
     );

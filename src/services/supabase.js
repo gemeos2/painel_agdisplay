@@ -42,9 +42,12 @@ const mapClientToUI = (client) => {
         type: serviceType,
         client: client.nome,
         plan: client.plano,
-        telefone: client.telefone, // Novo campo
+        email_contrato: client.email_contrato,
+        cpf: client.cpf_cnpj,
+        telefone: client.telefone,
+        status: client.status || 'agendado', // Usar o status do banco
         startDate: client.created_at ? client.created_at.split('T')[0] : '',
-        value: 'R$ -', // Not in DB
+        value: 'R$ -',
     };
 
     // Derived fields - pass service type to calculateEndDate
@@ -66,4 +69,42 @@ export const fetchClients = async () => {
     }
 
     return data.map(mapClientToUI);
+};
+
+// Create a new client in Supabase
+export const insertClient = async (clientData) => {
+    const { data, error } = await supabase
+        .from('table_clientes')
+        .insert([{
+            nome: clientData.nome,
+            servico: clientData.servico,
+            plano: clientData.plano,
+            email_contrato: clientData.email,
+            cpf_cnpj: clientData.cpf,
+            telefone: clientData.telefone,
+            status: 'agendado', // Status inicial default
+            created_at: new Date().toISOString()
+        }])
+        .select();
+
+    if (error) {
+        throw error;
+    }
+
+    return data[0];
+};
+
+// Update client status
+export const updateClientStatus = async (id, status) => {
+    const { data, error } = await supabase
+        .from('table_clientes')
+        .update({ status })
+        .eq('id', id)
+        .select();
+
+    if (error) {
+        throw error;
+    }
+
+    return data[0];
 };

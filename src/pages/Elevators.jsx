@@ -31,57 +31,21 @@ const Elevators = () => {
         }
     };
 
-    // Get approved clients from localStorage
-    const getApprovalStatus = () => {
-        const stored = localStorage.getItem('clientApprovals');
-        return stored ? JSON.parse(stored) : { approved: {}, rejected: [] };
-    };
-
-    // Check if 24 hours have passed since acceptance
-    const has24HoursPassed = (acceptedAt) => {
-        if (!acceptedAt) return false;
-        const acceptedTime = new Date(acceptedAt).getTime();
-        const currentTime = new Date().getTime();
-        const hoursPassed = (currentTime - acceptedTime) / (1000 * 60 * 60);
-        return hoursPassed >= 24;
-    };
-
-    // Calculate status based on dates (same logic as Dashboard and Clients)
+    // Use the status from the database or calculated one if needed
+    // However, the user wants consistency with the Clients page tabs.
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const contractsWithCalculatedStatus = contracts.map(contract => {
-        const startDate = new Date(contract.startDate);
-        const endDate = new Date(contract.endDate);
-        startDate.setHours(0, 0, 0, 0);
-        endDate.setHours(0, 0, 0, 0);
-
-        let status;
-        if (startDate > today) {
-            status = 'Agendado';
-        } else if (endDate < today) {
-            status = 'Finalizado';
-        } else {
-            status = 'Ativo';
-        }
-
-        return { ...contract, status };
-    });
-
-    const approvalStatus = getApprovalStatus();
-
-    const filteredContracts = contractsWithCalculatedStatus.filter(contract => {
+    // We use the status directly from the database (mapped in supabase.js)
+    const filteredContracts = contracts.filter(contract => {
         const matchesType = contract.type === 'elevator';
-
-        // Only show approved clients
-        const isApproved = approvalStatus.approved[contract.id];
-        if (!isApproved) return false;
+        const isAtivo = contract.status === 'ativo';
 
         // Filter by Plan
         const matchesPlan = selectedPlan === 'Todos' || contract.plan === selectedPlan;
         const matchesSearch = contract.client.toLowerCase().includes(searchTerm.toLowerCase());
 
-        return matchesType && matchesPlan && matchesSearch;
+        return matchesType && isAtivo && matchesPlan && matchesSearch;
     });
 
     if (loading) {

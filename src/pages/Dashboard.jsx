@@ -48,17 +48,14 @@ const Dashboard = () => {
         return { ...contract, calculatedStatus };
     });
 
+    // Calculate metrics based on DB status (matching Clients page tabs)
+    const activeCount = contracts.filter(c => c.status === 'ativo').length;
+    const scheduledCount = contracts.filter(c => c.status === 'agendado').length;
+    const finishedCount = contracts.filter(c => c.status === 'finalizado' || c.status === 'cancelado').length;
+
+    // For revenue and other charts, we still use allContracts but we'll base them on filtered data if needed
     const allContracts = contractsWithCalculatedStatus;
-
-    // Calculate metrics
-    const activeContracts = allContracts.filter(c => c.calculatedStatus === 'Ativo');
-    const scheduledContracts = allContracts.filter(c => c.calculatedStatus === 'Agendado');
-    const finishedContracts = allContracts.filter(c => c.calculatedStatus === 'Finalizado');
-
-    const activeCount = activeContracts.length;
-    const scheduledCount = scheduledContracts.length;
-    const finishedCount = finishedContracts.length;
-    const totalDeep = activeCount + scheduledCount; // Active + Scheduled only
+    const totalDeep = activeCount + scheduledCount;
 
     // Calculate monthly revenue
     // Include: Active contracts + Scheduled contracts starting this month
