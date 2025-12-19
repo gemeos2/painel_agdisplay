@@ -85,7 +85,8 @@ const ContractModal = ({ isOpen, onClose, contract }) => {
                             className="btn btn-primary"
                             style={{ flex: 1, backgroundColor: '#25D366', color: 'white', border: 'none' }}
                             onClick={() => {
-                                const chatwootUrl = `https://trius-chatwoot.dumfta.easypanel.host/app/accounts/1/contacts?q=${contract.email_contrato || contract.client}`;
+                                const searchQuery = contract.telefone || contract.email_contrato || contract.client;
+                                const chatwootUrl = `https://trius-chatwoot.dumfta.easypanel.host/app/accounts/1/contacts?q=${searchQuery}`;
                                 window.open(chatwootUrl, '_blank');
                             }}
                         >
