@@ -85,7 +85,24 @@ const ContractModal = ({ isOpen, onClose, contract }) => {
                             <MessageCircle size={20} />
                             Chatwoot
                         </button>
-                        <button className="btn" style={{ flex: 1, backgroundColor: 'var(--color-bg-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text-main)' }} onClick={() => alert('Abrindo Documento...')}>
+                        <button
+                            className="btn"
+                            style={{
+                                flex: 1,
+                                backgroundColor: 'var(--color-bg-surface)',
+                                border: '1px solid var(--color-border)',
+                                color: 'var(--color-text-main)',
+                                opacity: contract.documento_url ? 1 : 0.5,
+                                cursor: contract.documento_url ? 'pointer' : 'not-allowed'
+                            }}
+                            onClick={() => {
+                                if (contract.documento_url) {
+                                    window.open(contract.documento_url, '_blank');
+                                } else {
+                                    alert('Nenhum documento anexado a este contrato.');
+                                }
+                            }}
+                        >
                             <FileText size={20} />
                             Contrato
                         </button>

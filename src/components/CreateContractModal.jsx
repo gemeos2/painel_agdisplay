@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, User, Phone, Layers, PlayCircle, Loader2, Mail, CreditCard } from 'lucide-react';
+import { X, User, Phone, Layers, PlayCircle, Loader2, Mail, CreditCard, FileText } from 'lucide-react';
 import { elevatorPlans, tvPlans } from '../data/mockData';
-import { insertClient } from '../services/supabase';
+import { insertClient, uploadDocument } from '../services/supabase';
 
 const CreateContractModal = ({ isOpen, onClose, onSuccess }) => {
     const [loading, setLoading] = useState(false);
@@ -11,8 +11,11 @@ const CreateContractModal = ({ isOpen, onClose, onSuccess }) => {
         plano: '2 Semanas',
         email: '',
         cpf: '',
-        telefone: ''
+        telefone: '',
+        documento_url: ''
     });
+
+    const [selectedFile, setSelectedFile] = useState(null);
 
     if (!isOpen) return null;
 
@@ -26,7 +29,12 @@ const CreateContractModal = ({ isOpen, onClose, onSuccess }) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await insertClient(formData);
+            let documento_url = null;
+            if (selectedFile) {
+                documento_url = await uploadDocument(selectedFile);
+            }
+
+            await insertClient({ ...formData, documento_url });
             onSuccess();
             onClose();
             // Reset form
@@ -36,8 +44,10 @@ const CreateContractModal = ({ isOpen, onClose, onSuccess }) => {
                 plano: '2 Semanas',
                 email: '',
                 cpf: '',
-                telefone: ''
+                telefone: '',
+                documento_url: ''
             });
+            setSelectedFile(null);
         } catch (error) {
             console.error('Error creating contract:', error);
             alert('Erro ao criar contrato: ' + error.message);
@@ -162,6 +172,39 @@ const CreateContractModal = ({ isOpen, onClose, onSuccess }) => {
                             value={formData.telefone}
                             onChange={e => setFormData({ ...formData, telefone: e.target.value })}
                         />
+                    </div>
+
+                    <div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontSize: '0.875rem', fontWeight: 500 }}>
+                            <FileText size={16} /> Arquivo do Documento (Contrato/PDF)
+                        </label>
+                        <div style={{
+                            border: '2px dashed var(--color-border)',
+                            borderRadius: 'var(--radius-md)',
+                            padding: 'var(--space-4)',
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            backgroundColor: selectedFile ? 'rgba(249, 115, 22, 0.05)' : 'transparent',
+                            transition: 'all 0.2s'
+                        }} onClick={() => document.getElementById('file-upload').click()}>
+                            <input
+                                id="file-upload"
+                                type="file"
+                                style={{ display: 'none' }}
+                                onChange={e => setSelectedFile(e.target.files[0])}
+                            />
+                            {selectedFile ? (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                    <FileText size={20} color="var(--color-primary)" />
+                                    <span style={{ fontSize: '0.9rem', color: 'var(--color-text-main)' }}>{selectedFile.name}</span>
+                                </div>
+                            ) : (
+                                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                                    <p>Clique para selecionar o arquivo</p>
+                                    <p style={{ fontSize: '0.75rem', marginTop: '4px' }}>PDF, Imagem ou Documento</p>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <div style={{ marginTop: 'var(--space-4)', display: 'flex', gap: 'var(--space-3)' }}>

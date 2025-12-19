@@ -48,6 +48,7 @@ const mapClientToUI = (client) => {
         status: client.status || 'agendado', // Usar o status do banco
         startDate: client.created_at ? client.created_at.split('T')[0] : '',
         value: 'R$ -',
+        documento_url: client.documento_url || null,
     };
 
     // Derived fields - pass service type to calculateEndDate
@@ -71,6 +72,30 @@ export const fetchClients = async () => {
     return data.map(mapClientToUI);
 };
 
+// Upload a document to Supabase Storage
+export const uploadDocument = async (file) => {
+    if (!file) return null;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+    const filePath = `contracts/${fileName}`;
+
+    const { data, error } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+    if (error) {
+        throw error;
+    }
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+    return publicUrl;
+};
+
 // Create a new client in Supabase
 export const insertClient = async (clientData) => {
     const { data, error } = await supabase
@@ -82,6 +107,7 @@ export const insertClient = async (clientData) => {
             email_contrato: clientData.email,
             cpf_cnpj: clientData.cpf,
             telefone: clientData.telefone,
+            documento_url: clientData.documento_url,
             status: 'agendado', // Status inicial default
             created_at: new Date().toISOString()
         }])
